@@ -12,6 +12,7 @@
     container.appendChild(vyyerWidget);
 
     window.setStateCallback((state) => {
+      console.log("state callback: " + state);
       if (state === 'cancelled') {
         window.ReactNativeWebView.postMessage(JSON.stringify({ result: false }));
       } else if (state === 'done') {
