@@ -11,29 +11,48 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
+      background: #000;
+    }
+    #scanner-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
     }
     video {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
+    /* The overlay indicating the scanning region */
+    #scanner-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 250px;
+      height: 250px;
+      border: 2px dashed rgba(255, 255, 255, 0.8);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <video id="video" playsinline autoplay></video>
+  <div id="scanner-container">
+    <video id="video" playsinline autoplay></video>
+    <div id="scanner-overlay"></div>
+  </div>
 
   <script>
     let selectedDeviceId = null;
     let lastScanned = "";
     let lastScanTime = 0;
-
+    
     // Create an instance of the continuous scanner.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-    // Request camera access.
     async function initCameraAccess() {
       try {
-        // Request permission so that device labels are available.
+        // Request permission so device labels are available.
         await navigator.mediaDevices.getUserMedia({ video: true });
         await getCameras();
       } catch (err) {
@@ -41,7 +60,7 @@
       }
     }
 
-    // Enumerate available cameras and select the first whose label starts with "EMEET".
+    // Enumerate cameras and select the first whose label starts with "EMEET" (if available)
     async function getCameras() {
       try {
         const videoInputDevices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
@@ -49,9 +68,8 @@
           console.error("No video devices found.");
           return;
         }
-        // Look for a camera with a label starting with "EMEET"
-        const emeetDevice = videoInputDevices.find(device => device.label && device.label.startsWith("EMEET"));
-        selectedDeviceId = emeetDevice ? emeetDevice.deviceId : videoInputDevices[0].deviceId;
+        const emeteDevice = videoInputDevices.find(device => device.label && device.label.startsWith("EMEET"));
+        selectedDeviceId = emeteDevice ? emeteDevice.deviceId : videoInputDevices[0].deviceId;
         startContinuousScanning();
       } catch (err) {
         console.error("Error enumerating devices:", err);
@@ -64,7 +82,6 @@
       codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
         if (result) {
           const now = Date.now();
-          // Process the result only if it's new or at least 3 seconds have passed.
           if (result.text !== lastScanned || (now - lastScanTime) > 3000) {
             lastScanned = result.text;
             lastScanTime = now;
@@ -73,15 +90,20 @@
           }
         }
         if (error) {
-          // Ignore "NotFoundException" errors (no barcode in view).
-          if (error.name !== "NotFoundException") {
+          // Safely check if error is a NotFoundException and ignore it.
+          let isNotFound = false;
+          if (typeof ZXingBrowser.NotFoundException !== "undefined") {
+            isNotFound = error instanceof ZXingBrowser.NotFoundException;
+          } else if (error.name) {
+            isNotFound = error.name === "NotFoundException";
+          }
+          if (!isNotFound) {
             console.warn(error);
           }
         }
       });
     }
 
-    // Start the process.
     initCameraAccess();
   </script>
 </body>
