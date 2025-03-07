@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <!-- Using the UMD bundle from version 0.1.7 -->
-  <script type="text/javascript" src="https://unpkg.com/@zxing/browser@latest"></script>
+  <script src="https://unpkg.com/@zxing/browser@0.1.7/umd/index.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -48,50 +48,51 @@
     // Create an instance of the reader.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-    // Request camera access first.
-    function initCameraAccess() {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(() => {
-          document.getElementById("status").innerText = "Camera access granted.";
-          getCameras();
-        })
-        .catch(err => {
-          document.getElementById("status").innerText = "Camera permission required.";
-          console.error("Error getting camera access:", err);
-        });
+    // First, request camera access.
+    async function initCameraAccess() {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("status").innerText = "Camera access granted.";
+        await getCameras();
+      } catch (err) {
+        document.getElementById("status").innerText = "Camera permission required.";
+        console.error("Error getting camera access:", err);
+      }
     }
 
-    // Use the static method on the class to enumerate devices.
-    function getCameras() {
-      ZXingBrowser.BrowserMultiFormatReader.getVideoInputDevices()
-        .then(videoInputDevices => {
-          const select = document.getElementById("cameraSelect");
-          select.innerHTML = "";
-          if (videoInputDevices.length === 0) {
-            selectedDeviceId = "default";
-            document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
-            select.style.display = "none";
-          } else {
-            videoInputDevices.forEach((device, index) => {
-              const option = document.createElement("option");
-              option.value = device.deviceId;
-              option.text = device.label || `Camera ${index + 1}`;
-              select.appendChild(option);
-            });
-            selectedDeviceId = videoInputDevices[0].deviceId;
-            document.getElementById("status").innerText = "Camera ready. Press Start Scanner.";
-          }
-        })
-        .catch(err => {
-          console.error("Error enumerating devices:", err);
-          document.getElementById("status").innerText = "Error enumerating devices.";
-        });
+    // Enumerate available cameras using the official method.
+    async function getCameras() {
+      try {
+        const videoInputDevices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+        const select = document.getElementById("cameraSelect");
+        select.innerHTML = "";
+
+        if (videoInputDevices.length === 0) {
+          selectedDeviceId = "default";
+          document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
+          select.style.display = "none";
+        } else {
+          videoInputDevices.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${index + 1}`;
+            select.appendChild(option);
+          });
+          selectedDeviceId = videoInputDevices[0].deviceId;
+          document.getElementById("status").innerText = "Camera ready. Press Start Scanner.";
+        }
+      } catch (err) {
+        console.error("Error enumerating devices:", err);
+        document.getElementById("status").innerText = "Error enumerating devices.";
+      }
     }
 
+    // Update selected camera when the user changes the selection.
     document.getElementById("cameraSelect").addEventListener("change", function () {
       selectedDeviceId = this.value;
     });
 
+    // Start scanning using the selected camera or fallback constraints.
     document.getElementById("startButton").addEventListener("click", function () {
       document.getElementById("status").innerText = "Starting scanner...";
       const videoElement = document.getElementById("video");
@@ -101,14 +102,14 @@
           { video: { facingMode: "environment" } },
           videoElement
         )
-        .then(result => {
-          document.getElementById("result").innerText = result.text;
-          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
-        })
-        .catch(err => {
-          document.getElementById("status").innerText = "Scan error: " + err;
-          console.error("Scan error:", err);
-        });
+          .then(result => {
+            document.getElementById("result").innerText = result.text;
+            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
+          })
+          .catch(err => {
+            document.getElementById("status").innerText = "Scan error: " + err;
+            console.error("Scan error:", err);
+          });
       } else {
         codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement)
           .then(result => {
