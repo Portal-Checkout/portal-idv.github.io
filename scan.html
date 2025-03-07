@@ -1,141 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <!-- Load ZXing Browser library -->
-    <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            text-align: center;
-            font-family: Arial, sans-serif;
-        }
-
-        video {
-            width: 100%;
-            max-width: 400px;
-            border: 1px solid #ccc;
-            margin: 10px auto;
-        }
-
-        select,
-        button {
-            margin: 10px;
-            padding: 8px;
-            font-size: 16px;
-        }
-
-        #result {
-            font-size: 18px;
-            font-weight: bold;
-            color: green;
-        }
-
-        #status {
-            font-size: 16px;
-            color: red;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <!-- Use the UMD bundle to ensure ZXing is defined globally -->
+  <script type="text/javascript" src="https://unpkg.com/@zxing/browser@latest"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    video {
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #ccc;
+      margin: 10px auto;
+    }
+    select, button {
+      margin: 10px;
+      padding: 8px;
+      font-size: 16px;
+    }
+    #result {
+      font-size: 18px;
+      font-weight: bold;
+      color: green;
+    }
+    #status {
+      font-size: 16px;
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
 </head>
-
 <body>
-    <h2>Barcode Scanner</h2>
-    <p id="status">Requesting camera access...</p>
-    <select id="cameraSelect"></select>
-    <button id="startButton">Start Scanner</button>
-    <video id="video" playsinline></video>
-    <p>Scanned Code: <span id="result"></span></p>
+  <h2>Barcode Scanner</h2>
+  <p id="status">Requesting camera access...</p>
+  <select id="cameraSelect"></select>
+  <button id="startButton">Start Scanner</button>
+  <video id="video" playsinline></video>
+  <p>Scanned Code: <span id="result"></span></p>
 
-    <script>
-        let selectedDeviceId = null;
-        // Create an instance of ZXing's BrowserMultiFormatReader
-        const codeReader = new ZXing.BrowserMultiFormatReader();
+  <script>
+    let selectedDeviceId = null;
+    // Create an instance of ZXing's BrowserMultiFormatReader using the global ZXing from the UMD bundle.
+    const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-        // First, request camera access to ensure we can enumerate devices.
-        function initCameraAccess() {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(() => {
-                    document.getElementById("status").innerText = "Camera access granted.";
-                    getCameras();
-                })
-                .catch(err => {
-                    document.getElementById("status").innerText = "Camera permission required.";
-                    console.error("Error getting camera access:", err);
-                });
-        }
-
-        // Enumerate available cameras. On iOS, device enumeration might return an empty list.
-        function getCameras() {
-            codeReader.getVideoInputDevices()
-                .then(videoInputDevices => {
-                    const select = document.getElementById("cameraSelect");
-                    select.innerHTML = "";
-                    if (videoInputDevices.length === 0) {
-                        // Fallback for iOS when enumeration fails.
-                        selectedDeviceId = "default";
-                        document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
-                        select.style.display = "none";
-                    } else {
-                        videoInputDevices.forEach((device, index) => {
-                            const option = document.createElement("option");
-                            option.value = device.deviceId;
-                            option.text = device.label || `Camera ${index + 1}`;
-                            select.appendChild(option);
-                        });
-                        selectedDeviceId = videoInputDevices[0].deviceId;
-                        document.getElementById("status").innerText = "Camera ready. Press Start Scanner.";
-                    }
-                })
-                .catch(err => {
-                    console.error("Error enumerating devices:", err);
-                    document.getElementById("status").innerText = "Error enumerating devices.";
-                });
-        }
-
-        // When the user changes the camera selection.
-        document.getElementById("cameraSelect").addEventListener("change", function () {
-            selectedDeviceId = this.value;
+    // First, request camera access to ensure we can enumerate devices.
+    function initCameraAccess() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(() => {
+          document.getElementById("status").innerText = "Camera access granted.";
+          getCameras();
+        })
+        .catch(err => {
+          document.getElementById("status").innerText = "Camera permission required.";
+          console.error("Error getting camera access:", err);
         });
+    }
 
-        // Start scanning using the selected camera or default constraints.
-        document.getElementById("startButton").addEventListener("click", function () {
-            document.getElementById("status").innerText = "Starting scanner...";
-            const videoElement = document.getElementById("video");
-
-            if (selectedDeviceId === "default") {
-                // Fallback: Use a constraint to get the environment (rear) camera.
-                codeReader.decodeFromConstraints(
-                    { video: { facingMode: "environment" } },
-                    videoElement
-                )
-                    .then(result => {
-                        document.getElementById("result").innerText = result.text;
-                        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
-                    })
-                    .catch(err => {
-                        document.getElementById("status").innerText = "Scan error: " + err;
-                        console.error("Scan error:", err);
-                    });
-            } else {
-                // Use the selected device ID.
-                codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement)
-                    .then(result => {
-                        document.getElementById("result").innerText = result.text;
-                        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
-                    })
-                    .catch(err => {
-                        document.getElementById("status").innerText = "Scan error: " + err;
-                        console.error("Scan error:", err);
-                    });
-            }
+    // Enumerate available cameras. On iOS, device enumeration might return an empty list.
+    function getCameras() {
+      codeReader.getVideoInputDevices()
+        .then(videoInputDevices => {
+          const select = document.getElementById("cameraSelect");
+          select.innerHTML = "";
+          if (videoInputDevices.length === 0) {
+            // Fallback for iOS when enumeration fails.
+            selectedDeviceId = "default";
+            document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
+            select.style.display = "none";
+          } else {
+            videoInputDevices.forEach((device, index) => {
+              const option = document.createElement("option");
+              option.value = device.deviceId;
+              option.text = device.label || `Camera ${index + 1}`;
+              select.appendChild(option);
+            });
+            selectedDeviceId = videoInputDevices[0].deviceId;
+            document.getElementById("status").innerText = "Camera ready. Press Start Scanner.";
+          }
+        })
+        .catch(err => {
+          console.error("Error enumerating devices:", err);
+          document.getElementById("status").innerText = "Error enumerating devices.";
         });
+    }
 
-        initCameraAccess();
-    </script>
+    // Update selected camera when the user changes the selection.
+    document.getElementById("cameraSelect").addEventListener("change", function () {
+      selectedDeviceId = this.value;
+    });
+
+    // Start scanning using the selected camera or default constraints.
+    document.getElementById("startButton").addEventListener("click", function () {
+      document.getElementById("status").innerText = "Starting scanner...";
+      const videoElement = document.getElementById("video");
+
+      if (selectedDeviceId === "default") {
+        // Fallback: Use a constraint to get the environment (rear) camera.
+        codeReader.decodeFromConstraints(
+          { video: { facingMode: "environment" } },
+          videoElement
+        )
+        .then(result => {
+          document.getElementById("result").innerText = result.text;
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
+        })
+        .catch(err => {
+          document.getElementById("status").innerText = "Scan error: " + err;
+          console.error("Scan error:", err);
+        });
+      } else {
+        // Use the selected device ID.
+        codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement)
+          .then(result => {
+            document.getElementById("result").innerText = result.text;
+            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
+          })
+          .catch(err => {
+            document.getElementById("status").innerText = "Scan error: " + err;
+            console.error("Scan error:", err);
+          });
+      }
+    });
+
+    initCameraAccess();
+  </script>
 </body>
-
 </html>
