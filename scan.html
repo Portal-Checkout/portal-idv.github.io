@@ -5,120 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <script type="text/javascript" src="https://unpkg.com/@zxing/browser@latest"></script>
   <style>
-    body {
+    html, body {
       margin: 0;
       padding: 0;
-      text-align: center;
-      font-family: Arial, sans-serif;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
     }
     video {
       width: 100%;
-      max-width: 400px;
-      border: 1px solid #ccc;
-      margin: 10px auto;
-    }
-    select, button {
-      margin: 10px;
-      padding: 8px;
-      font-size: 16px;
-    }
-    #result {
-      font-size: 18px;
-      font-weight: bold;
-      color: green;
-    }
-    #status {
-      font-size: 16px;
-      color: red;
-      margin-top: 10px;
+      height: 100%;
+      object-fit: cover;
     }
   </style>
 </head>
 <body>
-  <h2>Barcode Scanner</h2>
-  <p id="status">Requesting camera access...</p>
-  <select id="cameraSelect"></select>
-  <button id="startButton">Start Scanner</button>
-  <video id="video" playsinline></video>
-  <p>Scanned Code: <span id="result"></span></p>
+  <video id="video" playsinline autoplay></video>
 
   <script>
     let selectedDeviceId = null;
+    let lastScanned = "";
+    let lastScanTime = 0;
+
     // Create an instance of the continuous scanner.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-    // Request camera access first.
+    // Request camera access.
     async function initCameraAccess() {
       try {
+        // Request permission so that device labels are available.
         await navigator.mediaDevices.getUserMedia({ video: true });
-        document.getElementById("status").innerText = "Camera access granted.";
         await getCameras();
       } catch (err) {
-        document.getElementById("status").innerText = "Camera permission required.";
         console.error("Error getting camera access:", err);
       }
     }
 
-    // Enumerate available cameras using the official method.
+    // Enumerate available cameras and select the first whose label starts with "EMEET".
     async function getCameras() {
       try {
         const videoInputDevices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-        const select = document.getElementById("cameraSelect");
-        select.innerHTML = "";
-
         if (videoInputDevices.length === 0) {
-          // Fallback for platforms that don't enumerate devices.
-          selectedDeviceId = "default";
-          document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
-          select.style.display = "none";
-        } else {
-          videoInputDevices.forEach((device, index) => {
-            const option = document.createElement("option");
-            option.value = device.deviceId;
-            option.text = device.label || `Camera ${index + 1}`;
-            select.appendChild(option);
-          });
-          selectedDeviceId = videoInputDevices[0].deviceId;
-          document.getElementById("status").innerText = "Camera ready. Press Start Scanner.";
+          console.error("No video devices found.");
+          return;
         }
+        // Look for a camera with a label starting with "EMEET"
+        const emeetDevice = videoInputDevices.find(device => device.label && device.label.startsWith("EMEET"));
+        selectedDeviceId = emeetDevice ? emeetDevice.deviceId : videoInputDevices[0].deviceId;
+        startContinuousScanning();
       } catch (err) {
         console.error("Error enumerating devices:", err);
-        document.getElementById("status").innerText = "Error enumerating devices.";
       }
     }
 
-    // Update selected camera when the user changes the selection.
-    document.getElementById("cameraSelect").addEventListener("change", function () {
-      selectedDeviceId = this.value;
-    });
-
     // Start continuous scanning.
-    document.getElementById("startButton").addEventListener("click", function () {
-      document.getElementById("status").innerText = "Starting scanner...";
+    function startContinuousScanning() {
       const videoElement = document.getElementById("video");
-      const deviceIdToUse = (selectedDeviceId === "default") ? null : selectedDeviceId;
-
-      codeReader.decodeFromVideoDevice(deviceIdToUse, videoElement, (result, error) => {
+      codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
         if (result) {
-          document.getElementById("result").innerText = result.text;
-          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
+          const now = Date.now();
+          // Process the result only if it's new or at least 3 seconds have passed.
+          if (result.text !== lastScanned || (now - lastScanTime) > 3000) {
+            lastScanned = result.text;
+            lastScanTime = now;
+            console.log("Scanned: " + result.text);
+            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
+          }
         }
         if (error) {
-          // Safely check for NotFoundException.
-          let isNotFound = false;
-          if (typeof ZXingBrowser.NotFoundException !== "undefined") {
-            isNotFound = error instanceof ZXingBrowser.NotFoundException;
-          } else if (error.name) {
-            isNotFound = error.name === "NotFoundException";
-          }
-          // Only log errors that are not "not found" errors.
-          if (!isNotFound) {
+          // Ignore "NotFoundException" errors (no barcode in view).
+          if (error.name !== "NotFoundException") {
             console.warn(error);
           }
         }
       });
-    });
+    }
 
+    // Start the process.
     initCameraAccess();
   </script>
 </body>
