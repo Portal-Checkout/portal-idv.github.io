@@ -19,11 +19,18 @@
       height: 100%;
     }
     video {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
+      z-index: 1;
+      /* Ensure inline playback on iOS */
+      -webkit-playsinline: true;
+      playsinline: true;
     }
-    /* The overlay indicating the scanning region */
+    /* Overlay for scan region */
     #scanner-overlay {
       position: absolute;
       top: 50%;
@@ -32,13 +39,17 @@
       height: 250px;
       border: 2px dashed rgba(255, 255, 255, 0.8);
       transform: translate(-50%, -50%);
+      z-index: 2;
       pointer-events: none;
+      /* Force hardware acceleration for better stacking */
+      -webkit-transform: translate(-50%, -50%) translateZ(0);
+      transform: translate(-50%, -50%) translateZ(0);
     }
   </style>
 </head>
 <body>
   <div id="scanner-container">
-    <video id="video" playsinline autoplay></video>
+    <video id="video" autoplay></video>
     <div id="scanner-overlay"></div>
   </div>
 
@@ -46,13 +57,10 @@
     let selectedDeviceId = null;
     let lastScanned = "";
     let lastScanTime = 0;
-    
-    // Create an instance of the continuous scanner.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
     async function initCameraAccess() {
       try {
-        // Request permission so device labels are available.
         await navigator.mediaDevices.getUserMedia({ video: true });
         await getCameras();
       } catch (err) {
@@ -60,7 +68,6 @@
       }
     }
 
-    // Enumerate cameras and select the first whose label starts with "EMEET" (if available)
     async function getCameras() {
       try {
         const videoInputDevices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
@@ -68,6 +75,7 @@
           console.error("No video devices found.");
           return;
         }
+        // Select the first camera whose label starts with "EMEET"
         const emeteDevice = videoInputDevices.find(device => device.label && device.label.startsWith("EMEET"));
         selectedDeviceId = emeteDevice ? emeteDevice.deviceId : videoInputDevices[0].deviceId;
         startContinuousScanning();
@@ -76,7 +84,6 @@
       }
     }
 
-    // Start continuous scanning.
     function startContinuousScanning() {
       const videoElement = document.getElementById("video");
       codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
@@ -90,7 +97,6 @@
           }
         }
         if (error) {
-          // Safely check if error is a NotFoundException and ignore it.
           let isNotFound = false;
           if (typeof ZXingBrowser.NotFoundException !== "undefined") {
             isNotFound = error instanceof ZXingBrowser.NotFoundException;
