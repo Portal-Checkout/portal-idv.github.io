@@ -30,7 +30,7 @@
       -webkit-playsinline: true;
       playsinline: true;
     }
-    /* Central scan zone overlay */
+    /* Overlay for the scanning region (dashed border) */
     #scanner-overlay {
       position: absolute;
       top: 50%;
@@ -41,36 +41,44 @@
       transform: translate(-50%, -50%);
       z-index: 3;
       pointer-events: none;
+      -webkit-transform: translate(-50%, -50%) translateZ(0);
+      transform: translate(-50%, -50%) translateZ(0);
     }
-    /* Masks for areas outside the scan zone */
+    /* Canvas overlay for drawing detected barcode region */
+    #result-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 4;
+      pointer-events: none;
+    }
+    /* Optional: Masks for areas outside the scan zone */
     .mask {
       position: absolute;
       background: rgba(0, 0, 0, 0.5);
       z-index: 2;
       pointer-events: none;
     }
-    /* Top mask: covers area above the scan zone */
     #mask-top {
       top: 0;
       left: 0;
       width: 100%;
       height: calc(50% - 125px);
     }
-    /* Bottom mask: covers area below the scan zone */
     #mask-bottom {
       bottom: 0;
       left: 0;
       width: 100%;
       height: calc(50% - 125px);
     }
-    /* Left mask: covers area to the left of the scan zone */
     #mask-left {
       top: calc(50% - 125px);
       left: 0;
       width: calc(50% - 125px);
       height: 250px;
     }
-    /* Right mask: covers area to the right of the scan zone */
     #mask-right {
       top: calc(50% - 125px);
       right: 0;
@@ -82,13 +90,15 @@
 <body>
   <div id="scanner-container">
     <video id="video" autoplay></video>
-    <!-- Four mask divs to darken the area outside the central scan zone -->
+    <!-- Masks (optional) -->
     <div id="mask-top" class="mask"></div>
     <div id="mask-bottom" class="mask"></div>
     <div id="mask-left" class="mask"></div>
     <div id="mask-right" class="mask"></div>
-    <!-- The scan zone overlay -->
+    <!-- Fixed scan zone overlay -->
     <div id="scanner-overlay"></div>
+    <!-- Canvas for drawing detected barcode region -->
+    <canvas id="result-canvas"></canvas>
   </div>
 
   <script>
@@ -97,9 +107,43 @@
     let lastScanTime = 0;
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
+    const container = document.getElementById("scanner-container");
+    const canvas = document.getElementById("result-canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Initialize the canvas size to match container dimensions.
+    function initCanvas() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+
+    // Clear the canvas.
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Draw a red polygon around the result points.
+    function drawPolygon(points) {
+      if (!points || points.length === 0) {
+        clearCanvas();
+        return;
+      }
+      clearCanvas();
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      // Assume the points are objects with x and y properties.
+      // You may need to adjust scaling if the coordinates differ.
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
     async function initCameraAccess() {
       try {
-        // Request permission so that device labels become available.
         await navigator.mediaDevices.getUserMedia({ video: true });
         await getCameras();
       } catch (err) {
@@ -114,7 +158,7 @@
           console.error("No video devices found.");
           return;
         }
-        // Select the first camera whose label starts with "EMEET" (if available)
+        // Select the first camera whose label starts with "EMEET"
         const emeteDevice = videoInputDevices.find(device => device.label && device.label.startsWith("EMEET"));
         selectedDeviceId = emeteDevice ? emeteDevice.deviceId : videoInputDevices[0].deviceId;
         startContinuousScanning();
@@ -124,20 +168,26 @@
     }
 
     function startContinuousScanning() {
+      initCanvas();
       const videoElement = document.getElementById("video");
       codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
         if (result) {
           const now = Date.now();
-          // Only process a new barcode if it's different or 3 seconds have passed.
           if (result.text !== lastScanned || (now - lastScanTime) > 3000) {
             lastScanned = result.text;
             lastScanTime = now;
             console.log("Scanned: " + result.text);
             window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
           }
+          // Draw the result points if available.
+          if (result.resultPoints) {
+            drawPolygon(result.resultPoints);
+          } else {
+            clearCanvas();
+          }
         }
         if (error) {
-          // Check if the error is a NotFoundException and ignore it.
+          // Safely check for NotFoundException
           let isNotFound = false;
           if (typeof ZXingBrowser.NotFoundException !== "undefined") {
             isNotFound = error instanceof ZXingBrowser.NotFoundException;
@@ -147,6 +197,8 @@
           if (!isNotFound) {
             console.warn(error);
           }
+          // Optionally clear the drawing if nothing is found
+          clearCanvas();
         }
       });
     }
