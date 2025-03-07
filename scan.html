@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <!-- Use the UMD bundle to ensure ZXing is defined globally -->
+  <!-- Using the UMD bundle from version 0.1.7 -->
   <script type="text/javascript" src="https://unpkg.com/@zxing/browser@latest"></script>
   <style>
     body {
@@ -45,10 +45,10 @@
 
   <script>
     let selectedDeviceId = null;
-    // Create an instance of ZXing's BrowserMultiFormatReader using the global ZXing from the UMD bundle.
+    // Create an instance of the reader.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-    // First, request camera access to ensure we can enumerate devices.
+    // Request camera access first.
     function initCameraAccess() {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(() => {
@@ -61,14 +61,13 @@
         });
     }
 
-    // Enumerate available cameras. On iOS, device enumeration might return an empty list.
+    // Use the static method on the class to enumerate devices.
     function getCameras() {
-      codeReader.getVideoInputDevices()
+      ZXingBrowser.BrowserMultiFormatReader.getVideoInputDevices()
         .then(videoInputDevices => {
           const select = document.getElementById("cameraSelect");
           select.innerHTML = "";
           if (videoInputDevices.length === 0) {
-            // Fallback for iOS when enumeration fails.
             selectedDeviceId = "default";
             document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
             select.style.display = "none";
@@ -89,18 +88,15 @@
         });
     }
 
-    // Update selected camera when the user changes the selection.
     document.getElementById("cameraSelect").addEventListener("change", function () {
       selectedDeviceId = this.value;
     });
 
-    // Start scanning using the selected camera or default constraints.
     document.getElementById("startButton").addEventListener("click", function () {
       document.getElementById("status").innerText = "Starting scanner...";
       const videoElement = document.getElementById("video");
 
       if (selectedDeviceId === "default") {
-        // Fallback: Use a constraint to get the environment (rear) camera.
         codeReader.decodeFromConstraints(
           { video: { facingMode: "environment" } },
           videoElement
@@ -114,7 +110,6 @@
           console.error("Scan error:", err);
         });
       } else {
-        // Use the selected device ID.
         codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement)
           .then(result => {
             document.getElementById("result").innerText = result.text;
