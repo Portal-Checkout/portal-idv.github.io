@@ -96,19 +96,25 @@
     document.getElementById("startButton").addEventListener("click", function () {
       document.getElementById("status").innerText = "Starting scanner...";
       const videoElement = document.getElementById("video");
-
-      // If no camera was enumerated, pass null to use the default device.
       const deviceIdToUse = (selectedDeviceId === "default") ? null : selectedDeviceId;
 
       codeReader.decodeFromVideoDevice(deviceIdToUse, videoElement, (result, error) => {
         if (result) {
-          // When a barcode is detected, display its text.
           document.getElementById("result").innerText = result.text;
           window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
         }
-        // Ignore "Not Found" errors, which are common when no barcode is in view.
-        if (error && !(error instanceof ZXingBrowser.NotFoundException)) {
-          console.warn(error);
+        if (error) {
+          // Safely check for NotFoundException.
+          let isNotFound = false;
+          if (typeof ZXingBrowser.NotFoundException !== "undefined") {
+            isNotFound = error instanceof ZXingBrowser.NotFoundException;
+          } else if (error.name) {
+            isNotFound = error.name === "NotFoundException";
+          }
+          // Only log errors that are not "not found" errors.
+          if (!isNotFound) {
+            console.warn(error);
+          }
         }
       });
     });
