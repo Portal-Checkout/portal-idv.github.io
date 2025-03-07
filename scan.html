@@ -44,7 +44,7 @@
 
   <script>
     let selectedDeviceId = null;
-    // Create an instance of the reader.
+    // Create an instance of the continuous scanner.
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
     // Request camera access first.
@@ -67,6 +67,7 @@
         select.innerHTML = "";
 
         if (videoInputDevices.length === 0) {
+          // Fallback for platforms that don't enumerate devices.
           selectedDeviceId = "default";
           document.getElementById("status").innerText = "No camera enumerated. Using default camera.";
           select.style.display = "none";
@@ -91,29 +92,25 @@
       selectedDeviceId = this.value;
     });
 
-    // Start scanning using the selected camera or fallback constraints.
-    document.getElementById("startButton").addEventListener("click", async function () {
+    // Start continuous scanning.
+    document.getElementById("startButton").addEventListener("click", function () {
       document.getElementById("status").innerText = "Starting scanner...";
       const videoElement = document.getElementById("video");
 
-      try {
-        let result;
-        if (selectedDeviceId === "default") {
-          // Fallback: use constraints to select the environment (rear) camera.
-          result = await codeReader.decodeOnceFromConstraints(
-            { video: { facingMode: "environment" } },
-            videoElement
-          );
-        } else {
-          // Use the selected device ID.
-          result = await codeReader.decodeOnceFromVideoDevice(selectedDeviceId, videoElement);
+      // If no camera was enumerated, pass null to use the default device.
+      const deviceIdToUse = (selectedDeviceId === "default") ? null : selectedDeviceId;
+
+      codeReader.decodeFromVideoDevice(deviceIdToUse, videoElement, (result, error) => {
+        if (result) {
+          // When a barcode is detected, display its text.
+          document.getElementById("result").innerText = result.text;
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
         }
-        document.getElementById("result").innerText = result.text;
-        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
-      } catch (err) {
-        document.getElementById("status").innerText = "Scan error: " + err;
-        console.error("Scan error:", err);
-      }
+        // Ignore "Not Found" errors, which are common when no barcode is in view.
+        if (error && !(error instanceof ZXingBrowser.NotFoundException)) {
+          console.warn(error);
+        }
+      });
     });
 
     initCameraAccess();
