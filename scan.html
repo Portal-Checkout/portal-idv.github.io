@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <script type="text/javascript" src="https://unpkg.com/@zxing/browser@latest"></script>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -13,12 +15,14 @@
       overflow: hidden;
       background: #000;
     }
+
     #scanner-container {
       position: relative;
       width: 100%;
       height: 100%;
     }
-    /* Fullscreen video feed */
+
+    /* Fullscreen video feed with reversed (mirrored) display */
     video {
       position: absolute;
       top: 0;
@@ -29,7 +33,10 @@
       z-index: 1;
       -webkit-playsinline: true;
       playsinline: true;
+      transform: scaleX(-1);
+      -webkit-transform: scaleX(-1);
     }
+
     /* Overlay for the scanning region (dashed border) */
     #scanner-overlay {
       position: absolute;
@@ -44,6 +51,7 @@
       -webkit-transform: translate(-50%, -50%) translateZ(0);
       transform: translate(-50%, -50%) translateZ(0);
     }
+
     /* Canvas overlay for drawing detected barcode region */
     #result-canvas {
       position: absolute;
@@ -54,31 +62,36 @@
       z-index: 4;
       pointer-events: none;
     }
-    /* Optional: Masks for areas outside the scan zone */
+
+    /* Optional masks */
     .mask {
       position: absolute;
       background: rgba(0, 0, 0, 0.5);
       z-index: 2;
       pointer-events: none;
     }
+
     #mask-top {
       top: 0;
       left: 0;
       width: 100%;
       height: calc(50% - 125px);
     }
+
     #mask-bottom {
       bottom: 0;
       left: 0;
       width: 100%;
       height: calc(50% - 125px);
     }
+
     #mask-left {
       top: calc(50% - 125px);
       left: 0;
       width: calc(50% - 125px);
       height: 250px;
     }
+
     #mask-right {
       top: calc(50% - 125px);
       right: 0;
@@ -87,10 +100,11 @@
     }
   </style>
 </head>
+
 <body>
   <div id="scanner-container">
     <video id="video" autoplay></video>
-    <!-- Masks (optional) -->
+    <!-- Optional Masks -->
     <div id="mask-top" class="mask"></div>
     <div id="mask-bottom" class="mask"></div>
     <div id="mask-left" class="mask"></div>
@@ -111,7 +125,7 @@
     const canvas = document.getElementById("result-canvas");
     const ctx = canvas.getContext("2d");
 
-    // Initialize the canvas size to match container dimensions.
+    // Set the canvas to the container's dimensions.
     function initCanvas() {
       canvas.width = container.clientWidth;
       canvas.height = container.clientHeight;
@@ -122,7 +136,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Draw a red polygon around the result points.
+    // Draw a red polygon around detected barcode result points.
     function drawPolygon(points) {
       if (!points || points.length === 0) {
         clearCanvas();
@@ -132,18 +146,37 @@
       ctx.strokeStyle = "red";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      // Assume the points are objects with x and y properties.
-      // You may need to adjust scaling if the coordinates differ.
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
+      if (points.length === 2) {
+        // For 1D barcodes, ZXing may return two points. Create a rectangle around the line.
+        const p0 = points[0], p1 = points[1];
+        const dx = p1.x - p0.x, dy = p1.y - p0.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return;
+        const offset = 10; // Adjust this fixed offset as needed.
+        const px = -dy / len * offset, py = dx / len * offset;
+        const corner1 = { x: p0.x + px, y: p0.y + py };
+        const corner2 = { x: p1.x + px, y: p1.y + py };
+        const corner3 = { x: p1.x - px, y: p1.y - py };
+        const corner4 = { x: p0.x - px, y: p0.y - py };
+        ctx.moveTo(corner1.x, corner1.y);
+        ctx.lineTo(corner2.x, corner2.y);
+        ctx.lineTo(corner3.x, corner3.y);
+        ctx.lineTo(corner4.x, corner4.y);
+        ctx.closePath();
+      } else {
+        // For more points, draw a polygon.
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.closePath();
       }
-      ctx.closePath();
       ctx.stroke();
     }
 
     async function initCameraAccess() {
       try {
+        // Request camera access first.
         await navigator.mediaDevices.getUserMedia({ video: true });
         await getCameras();
       } catch (err) {
@@ -170,7 +203,19 @@
     function startContinuousScanning() {
       initCanvas();
       const videoElement = document.getElementById("video");
-      codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
+
+      // Define constraints for high resolution (e.g., ideal 4K resolution)
+      const constraints = {
+        video: {
+          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+          frameRate: { ideal: 60 }
+        }
+      };
+
+      // Use decodeFromConstraints to pass the resolution constraints.
+      codeReader.decodeFromConstraints(constraints, videoElement, (result, error) => {
         if (result) {
           const now = Date.now();
           if (result.text !== lastScanned || (now - lastScanTime) > 3000) {
@@ -179,7 +224,6 @@
             console.log("Scanned: " + result.text);
             window.ReactNativeWebView && window.ReactNativeWebView.postMessage(result.text);
           }
-          // Draw the result points if available.
           if (result.resultPoints) {
             drawPolygon(result.resultPoints);
           } else {
@@ -187,7 +231,6 @@
           }
         }
         if (error) {
-          // Safely check for NotFoundException
           let isNotFound = false;
           if (typeof ZXingBrowser.NotFoundException !== "undefined") {
             isNotFound = error instanceof ZXingBrowser.NotFoundException;
@@ -197,7 +240,6 @@
           if (!isNotFound) {
             console.warn(error);
           }
-          // Optionally clear the drawing if nothing is found
           clearCanvas();
         }
       });
@@ -206,4 +248,5 @@
     initCameraAccess();
   </script>
 </body>
+
 </html>
