@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <!-- Load Dynamsoft Barcode Reader Bundle -->
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.4.3100/dist/dbr.bundle.js"></script>
-  <!-- Load Dynamsoft Easy Barcode Scanner; pass your license key via data-license attribute -->
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/Dynamsoft/easy-barcode-scanner@10.4.3100/dist/easy-barcode-scanner.js" data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
+  <!-- Load Dynamsoft Easy Barcode Scanner with your license key -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/Dynamsoft/easy-barcode-scanner@10.4.3100/dist/easy-barcode-scanner.js" data-license="YOUR_LICENSE_KEY_HERE"></script>
   <style>
     html, body {
       margin: 0;
@@ -26,7 +26,7 @@
       transform: scaleX(-1);
       -webkit-transform: scaleX(-1);
     }
-    /* Optional overlay for scanning region */
+    /* Optional overlay for visual guidance */
     #scanner-overlay {
       position: absolute;
       top: 50%;
@@ -46,14 +46,41 @@
   <script>
     (async function(){
       try {
-        // Create an instance of the scanner.
+        // Create an instance of the Easy Barcode Scanner.
         const scanner = await EasyBarcodeScanner.createInstance();
         
         // Insert the scanner's UI element into our container.
         const container = document.getElementById("camera-view-container");
         container.appendChild(scanner.getUIElement());
         
-        // Set up a debounced unique read callback (3-second debounce).
+        // Enumerate video devices.
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === "videoinput");
+        // Select the first device whose label starts with "EMEET", if available.
+        const emeteDevice = videoDevices.find(device => device.label && device.label.startsWith("EMEET"));
+        const selectedDeviceId = emeteDevice ? emeteDevice.deviceId : undefined;
+        
+        // If a matching device was found, explicitly select it.
+        if (selectedDeviceId) {
+          scanner.selectVideoInputDevice(selectedDeviceId);
+          console.log("Selected device: " + selectedDeviceId);
+        } else {
+          console.log("No 'EMEET' device found; using default camera.");
+        }
+        
+        // Prepare high-resolution constraints.
+        const constraints = {
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+          frameRate: { ideal: 60 }
+        };
+        
+        // If available, set video settings on the scanner.
+        if (typeof scanner.setVideoSettings === "function") {
+          scanner.setVideoSettings({ constraints });
+        }
+        
+        // Debounced unique read callback (3-second debounce).
         scanner.onUniqueRead = (barcodeText) => {
           const now = Date.now();
           if (!window._lastReadTime || barcodeText !== window._lastRead || (now - window._lastReadTime) > 3000) {
@@ -64,25 +91,8 @@
           }
         };
         
-        // Enumerate devices using navigator.mediaDevices.enumerateDevices()
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === "videoinput");
-        const emeteDevice = videoDevices.find(device => device.label && device.label.startsWith("EMEET"));
-        if(emeteDevice) {
-          scanner.selectVideoInputDevice(emeteDevice.deviceId);
-        }
-        
-        // Optionally, set high-resolution constraints if the API supports it.
-        if (typeof scanner.setVideoSettings === "function") {
-          scanner.setVideoSettings({
-            width: { ideal: 3840 },
-            height: { ideal: 2160 },
-            frameRate: { ideal: 60 }
-          });
-        }
-        
-        // Open the scanner (start the camera and begin scanning).
-        await scanner.open();
+        // Open the scanner with the high-resolution constraints.
+        await scanner.open({ video: { constraints } });
         console.log("Scanner opened successfully.");
       } catch (ex) {
         console.error("Error creating or opening scanner:", ex);
