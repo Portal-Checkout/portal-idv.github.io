@@ -54,7 +54,7 @@
         container.appendChild(scanner.getUIElement());
         
         // Use the camera enhancer API.
-        const cameraEnhancer = scanner.getCameraEnhancer();
+        const cameraEnhancer = scanner._cameraEnhancer;
         // Enumerate available cameras.
         const cameras = await cameraEnhancer.getAllCameras();
         if (cameras && cameras.length > 0) {
