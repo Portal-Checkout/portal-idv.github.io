@@ -1,103 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<!-- Load Dynamsoft Barcode Reader Bundle -->
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.4.3100/dist/dbr.bundle.js" data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
-<!-- Load Dynamsoft Easy Barcode Scanner with your license key -->
-<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/Dynamsoft/easy-barcode-scanner@10.4.3100/dist/easy-barcode-scanner.js" data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
+  <!-- Dynamsoft SDKs -->
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.4.3100/dist/dbr.bundle.js"
+    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
+  <script src="https://cdn.jsdelivr.net/gh/Dynamsoft/easy-barcode-scanner@10.4.3100/dist/easy-barcode-scanner.js"
+    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
-      height: 100%;
       width: 100%;
+      height: 100%;
       overflow: hidden;
       background: #000;
     }
+
     #camera-view-container {
-      height: 100vh;
       width: 100%;
+      height: 100vh;
       position: relative;
     }
-    /* Mirror the video feed */
-    #camera-view-container video {
-      transform: scaleX(-1);
-      -webkit-transform: scaleX(-1);
+
+    /* Mirror + keep 4:3 + crop any overflow */
+    #camera-view-container video,
+    #camera-view-container .dce-video,
+    #camera-view-container canvas {
+      transform: scaleX(-1) !important;
+      -webkit-transform: scaleX(-1) !important;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
     }
-    /* Optional overlay for visual guidance */
+
+    /* Optional overlay (scan guide) */
     #scanner-overlay {
       position: absolute;
       top: 50%;
       left: 50%;
       width: 250px;
       height: 250px;
-      border: 2px dashed rgba(255,255,255,0.8);
+      border: 2px dashed rgba(255, 255, 255, 0.8);
       transform: translate(-50%, -50%);
       z-index: 10;
       pointer-events: none;
     }
   </style>
 </head>
+
 <body>
   <div id="camera-view-container"></div>
   <div id="scanner-overlay"></div>
+
   <script>
-    (async function(){
+    (async () => {
       try {
-        // Create an instance of the Easy Barcode Scanner.
+        /* 1. Create scanner */
         const scanner = await EasyBarcodeScanner.createInstance();
-        
-        // Insert the scanner's UI element into our container.
         const container = document.getElementById("camera-view-container");
         container.appendChild(scanner.getUIElement());
-        
-        // Use the camera enhancer API.
-        const cameraEnhancer = scanner._cameraEnhancer;
-        // Enumerate available cameras.
-        const cameras = await cameraEnhancer.getAllCameras();
-        if (cameras && cameras.length > 0) {
-          // Select the first camera whose label starts with "EMEET", if available.
-          const emeteCamera = cameras.find(device => device.label && device.label.startsWith("EMEET"));
-          const selectedDeviceId = emeteCamera ? emeteCamera.deviceId : cameras[0].deviceId;
-          await cameraEnhancer.selectCamera(selectedDeviceId);
-          console.log("Selected device: " + selectedDeviceId);
-        } else {
-          console.log("No cameras available; using default settings.");
+
+        /* 2. Choose camera (prefer EMEET if present) */
+        const camEnhancer = scanner._cameraEnhancer;
+        const cams = await camEnhancer.getAllCameras();
+        if (cams.length) {
+          const pick = cams.find(c => c.label?.startsWith("EMEET")) || cams[0];
+          await camEnhancer.selectCamera(pick.deviceId);
+          console.log("Selected camera:", pick.label || pick.deviceId);
         }
-        
-        // Prepare high-resolution constraints.
+
+        /* 3. Request high-quality 4:3 stream */
         const constraints = {
-          width: { ideal: 3840 },
-          height: { ideal: 2160 },
+          width: { ideal: 1920 },   // 4:3 HD
+          height: { ideal: 1440 },
+          aspectRatio: { ideal: 4 / 3 },  // hint for Chromium
           frameRate: { ideal: 60 }
         };
-        
-        // If supported, set video settings on the scanner.
-        if (typeof scanner.setVideoSettings === "function") {
-          scanner.setVideoSettings({ constraints });
-        }
-        
-        // Set up a debounced unique read callback (3-second debounce).
-        scanner.onUniqueRead = (barcodeText) => {
+        scanner.setVideoSettings?.({ constraints });
+
+        /* 4. Debounced unique reads */
+        scanner.onUniqueRead = text => {
           const now = Date.now();
-          if (!window._lastReadTime || barcodeText !== window._lastRead || (now - window._lastReadTime) > 3000) {
-            window._lastRead = barcodeText;
-            window._lastReadTime = now;
-            console.log("Scanned: " + barcodeText);
-            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(barcodeText);
+          if (!window._last || text !== window._last.text || now - window._last.time > 3000) {
+            window._last = { text, time: now };
+            console.log("Scanned:", text);
+            window.ReactNativeWebView?.postMessage(text);
           }
         };
-        
-        // Open the scanner with the high-resolution constraints.
+
+        /* 5. Open scanner */
         await scanner.open({ video: { constraints } });
-        console.log("Scanner opened successfully.");
-      } catch (ex) {
-        console.error("Error creating or opening scanner:", ex);
-        alert(ex.message || ex);
+        console.log("Scanner open");
+      } catch (err) {
+        console.error(err);
+        alert(err.message || err);
       }
     })();
   </script>
 </body>
+
 </html>
