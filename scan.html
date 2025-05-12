@@ -72,12 +72,12 @@
           console.log("Selected camera:", pick.label || pick.deviceId);
           
           // Set resolution to match constraints
-          await camEnhancer.setResolution({width: 1920, height: 1440});
+          await camEnhancer.setResolution({width: 2560, height: 1440});
         }
 
         /* 3. Request high-quality 4:3 stream */
         const constraints = {
-          width: { ideal: 1920 },   // 4:3 HD
+          width: { ideal: 2560 },   // 2K resolution
           height: { ideal: 1440 },
           aspectRatio: { ideal: 4 / 3 },  // hint for Chromium
           frameRate: { ideal: 60 }
