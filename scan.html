@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <!-- Dynamsoft SDKs -->
   <script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.4.3100/dist/dbr.bundle.js"
-    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
+    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMzc5MzczOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOi02MTEwOTE4ODh9"></script>
   <script src="https://cdn.jsdelivr.net/gh/Dynamsoft/easy-barcode-scanner@10.4.3100/dist/easy-barcode-scanner.js"
-    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTAzNzkzNzM5Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTM2MDY5NzQ2MH0="></script>
+    data-license="DLS2eyJoYW5kc2hha2VDb2RlIjoiMTAzNzkzNzM5LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJvcmdhbml6YXRpb25JRCI6IjEwMzc5MzczOSIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbS8iLCJjaGVja0NvZGUiOi02MTEwOTE4ODh9"></script>
   <style>
     html,
     body {
@@ -70,6 +70,9 @@
           const pick = cams.find(c => c.label?.startsWith("EMEET")) || cams[0];
           await camEnhancer.selectCamera(pick.deviceId);
           console.log("Selected camera:", pick.label || pick.deviceId);
+          
+          // Set resolution to match constraints
+          await camEnhancer.setResolution({width: 1920, height: 1440});
         }
 
         /* 3. Request high-quality 4:3 stream */
